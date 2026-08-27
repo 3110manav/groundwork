@@ -22,6 +22,72 @@ interface Msg {
   error?: boolean;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Answers come back as markdown-ish text (the model isn't told to avoid it,
+ * and site content it draws from often has its own structure). Left raw, a
+ * visitor sees literal ** and * — this renders the safe subset we actually
+ * expect: bold, italics, inline code, links, and lists. Everything is
+ * HTML-escaped before any tag is introduced, since the source text is the
+ * model's answer plus content pulled from the customer's own site, which is
+ * untrusted the same way the launcher icon is (see sanitizeIcon above).
+ */
+function renderInline(text: string): string {
+  return escapeHtml(text)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
+    .replace(/(^|[^\w])_([^_\n]+)_(?!\w)/g, "$1<em>$2</em>");
+}
+
+function renderMarkdown(raw: string): string {
+  const lines = raw.split("\n");
+  const blocks: string[] = [];
+  let para: string[] = [];
+
+  const flushPara = () => {
+    if (para.length) {
+      blocks.push(`<p>${para.map(renderInline).join("<br>")}</p>`);
+      para = [];
+    }
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i]!;
+    const bullet = /^\s*[-*]\s+(.*)/.exec(line);
+    const numbered = /^\s*\d+\.\s+(.*)/.exec(line);
+    const tag = bullet ? "ul" : "ol";
+
+    if (bullet || numbered) {
+      flushPara();
+      const items: string[] = [];
+      const re = bullet ? /^\s*[-*]\s+(.*)/ : /^\s*\d+\.\s+(.*)/;
+      while (i < lines.length) {
+        const m = re.exec(lines[i]!);
+        if (!m) break;
+        items.push(`<li>${renderInline(m[1]!)}</li>`);
+        i++;
+      }
+      blocks.push(`<${tag}>${items.join("")}</${tag}>`);
+      continue;
+    }
+
+    if (line.trim() === "") {
+      flushPara();
+    } else {
+      para.push(line);
+    }
+    i++;
+  }
+  flushPara();
+  return blocks.join("");
+}
+
 /**
  * Remember the conversation across a page reload, scoped per site key so one
  * customer's widget never touches another's storage even on the same host
@@ -205,9 +271,15 @@ function Widget({ cfg }: { cfg: WidgetConfig }) {
             {messages.map((m, i) => (
               <div class="turn" key={i}>
                 <div class={`msg ${m.role}${m.error ? " error" : ""}`}>
-                  {m.content || (busy && i === messages.length - 1 ? (
+                  {m.content ? (
+                    m.role === "assistant" && !m.error ? (
+                      <span dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }} />
+                    ) : (
+                      m.content
+                    )
+                  ) : busy && i === messages.length - 1 ? (
                     <span class="dots"><i /><i /><i /></span>
-                  ) : null)}
+                  ) : null}
                 </div>
                 {m.sources && m.sources.length > 0 && (
                   <div class="sources">

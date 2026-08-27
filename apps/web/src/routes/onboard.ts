@@ -8,7 +8,11 @@ import { type AuthEnv, ownsSite, requireAuth } from "../lib/auth.js";
 export const onboard = new Hono<AuthEnv>();
 
 // Every step here writes to an org/site — none of it makes sense signed out.
-onboard.use("*", requireAuth());
+// Scoped to "/onboard/*", not "*" — onboard is mounted at "/" in index.ts, so
+// an unscoped wildcard here would gate every route registered after it
+// app-wide (e.g. /health), not just this router's own pages.
+onboard.use("/onboard", requireAuth());
+onboard.use("/onboard/*", requireAuth());
 
 const steps = (on: number) =>
   ["Your site", "Indexing", "Style it", "Install"]

@@ -8,7 +8,10 @@ import { type AuthEnv, ownsSite, requireAuth } from "../lib/auth.js";
 
 export const provider = new Hono<AuthEnv>();
 
-provider.use("*", requireAuth());
+// Scoped to "/site/*", not "*" — provider is mounted at "/" in index.ts, so
+// an unscoped wildcard here would gate every route registered after it
+// app-wide (e.g. /health), not just this router's own pages.
+provider.use("/site/*", requireAuth());
 
 /**
  * Provider connection — the step that was missing entirely.

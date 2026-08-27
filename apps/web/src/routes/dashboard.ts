@@ -6,7 +6,11 @@ import { type AuthEnv, ownsSite, requireAuth } from "../lib/auth.js";
 
 export const dashboard = new Hono<AuthEnv>();
 
-dashboard.use("*", requireAuth());
+// Scoped to this router's own paths, not "*" — dashboard is mounted at "/" in
+// index.ts, so an unscoped wildcard here would gate every route registered
+// after it app-wide (e.g. /health), not just this router's own pages.
+dashboard.use("/dashboard", requireAuth());
+dashboard.use("/site/*", requireAuth());
 
 /** Landing spot after login — every site the owner's account belongs to. */
 dashboard.get("/dashboard", async (c) => {
@@ -126,6 +130,7 @@ dashboard.get("/site/:id", async (c) => {
       ? arr.map((r) => `<tr><td>${escape(r.a)}</td><td style="text-align:right;font-family:var(--mono)">${escape(r.b)}</td></tr>`).join("")
       : `<tr><td colspan="2" class="hint">${empty}</td></tr>`;
 
+  const delErr = c.req.query("delete_error");
   const cacheRate = usage && usage.calls > 0 ? Math.round((usage.hits / usage.calls) * 100) : 0;
   const billedTokens = (usage?.inputToks ?? 0) + (usage?.outputToks ?? 0);
   const cacheableTokens = billedTokens + (usage?.cachedToks ?? 0);
@@ -134,7 +139,14 @@ dashboard.get("/site/:id", async (c) => {
 
   return c.html(
     page(
-      { title: `${site.name} — Groundwork`, user: c.get("user") },
+      {
+        title: `${site.name} — Groundwork`,
+        user: c.get("user"),
+        // Progressive enhancement only — the server re-checks the typed name,
+        // so a no-JS visitor still gets the real guardrail.
+        script: `var delInput=document.getElementById('del-confirm'),delBtn=document.getElementById('del-btn');
+if(delInput&&delBtn){var syncDel=function(){delBtn.disabled=delInput.value.trim().toLowerCase()!==delInput.getAttribute('data-name').trim().toLowerCase();};delInput.addEventListener('input',syncDel);syncDel();}`,
+      },
       `<section class="band"><div class="wrap">
   <p class="eyebrow">Dashboard</p>
   <h1 style="font-size:clamp(26px,3.4vw,34px)">${escape(site.name)}</h1>
@@ -253,6 +265,20 @@ dashboard.get("/site/:id", async (c) => {
     <a class="btn ghost" href="/onboard/${id}/style">Edit appearance</a>
     <a class="btn ghost" href="/onboard/${id}/install">Install snippet</a>
   </div>
+
+  <h2 style="font-size:21px;margin-top:48px;color:var(--danger)">Danger zone</h2>
+  <div class="card" style="border-color:var(--danger);margin-top:12px">
+    <h3>Delete this site</h3>
+    <p style="font-size:14.5px">Removes the widget, the index, every conversation and all usage history — permanently. The install snippet on your pages stops working immediately. This cannot be undone.</p>
+    ${delErr ? `<p style="color:var(--danger);font-size:14px;margin-top:10px">${escape(delErr)}</p>` : ""}
+    <form method="post" action="/site/${id}/delete" style="margin-top:16px;max-width:420px">
+      <div class="field" style="margin-bottom:12px">
+        <label for="del-confirm">Type <strong>${escape(site.name)}</strong> to confirm</label>
+        <input type="text" id="del-confirm" name="confirm" data-name="${escape(site.name)}" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn danger" id="del-btn" type="submit">Delete site permanently</button>
+    </form>
+  </div>
 </div></section>`,
     ),
   );
@@ -310,4 +336,29 @@ dashboard.post("/site/:id/recrawl", async (c) => {
   if (!(await ownsSite(c.get("user").id, id))) return c.notFound();
   await sql`INSERT INTO crawl_jobs (site_id, status) VALUES (${id}, 'queued')`;
   return c.redirect(`/onboard/${id}/indexing`);
+});
+
+/**
+ * The one action here that cannot be walked back. The form makes the owner
+ * type the site's name, and the server re-checks it — the client-side gate
+ * is convenience, this comparison is the guardrail.
+ */
+dashboard.post("/site/:id/delete", async (c) => {
+  const id = c.req.param("id");
+  if (!(await ownsSite(c.get("user").id, id))) return c.notFound();
+  const [site] = await sql<{ name: string }[]>`SELECT name FROM sites WHERE id = ${id}`;
+  if (!site) return c.notFound();
+
+  const f = await c.req.parseBody();
+  const typed = String(f.confirm ?? "").trim();
+  if (typed.toLowerCase() !== site.name.trim().toLowerCase()) {
+    return c.redirect(
+      `/site/${id}?delete_error=${encodeURIComponent("The name you typed didn't match — nothing was deleted.")}`,
+    );
+  }
+
+  // Every dependent table references sites with ON DELETE CASCADE, so this one
+  // statement removes the index, conversations, keys, config and usage with it.
+  await sql`DELETE FROM sites WHERE id = ${id}`;
+  return c.redirect("/dashboard");
 });

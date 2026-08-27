@@ -73,9 +73,20 @@ export function styles(cfg: WidgetConfig): string {
 
 .turn { display: contents; }
 
-.msg { max-width: 85%; padding: 9px 13px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; }
-.msg.user { align-self: flex-end; background: var(--user-bubble); }
+.msg { max-width: 85%; padding: 9px 13px; border-radius: 14px; word-wrap: break-word; }
+.msg.user { align-self: flex-end; background: var(--user-bubble); white-space: pre-wrap; }
 .msg.assistant { align-self: flex-start; background: rgba(127,127,127,.1); }
+
+.msg.assistant p { margin: 0 0 8px; }
+.msg.assistant ul, .msg.assistant ol { margin: 0 0 8px; padding-left: 20px; }
+.msg.assistant p:last-child, .msg.assistant ul:last-child, .msg.assistant ol:last-child { margin-bottom: 0; }
+.msg.assistant li { margin: 2px 0; }
+.msg.assistant strong { font-weight: 700; }
+.msg.assistant code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em;
+  background: rgba(127,127,127,.15); padding: 1px 5px; border-radius: 4px;
+}
+.msg.assistant a { color: var(--primary); text-decoration: underline; }
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; max-width: 85%; }
 .sources a {
