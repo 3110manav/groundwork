@@ -1,0 +1,22 @@
+{
+  "name": "@groundwork/providers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json --emitDeclarationOnly --outDir dist",
+    "verify": "tsx --env-file=../../.env scripts/verify.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
+    "@groundwork/contracts": "workspace:*",
+    "@google/genai": "^1.30.0",
+    "openai": "^4.68.1"
+  }
+}

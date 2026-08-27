@@ -1,0 +1,51 @@
+# ==========================================
+# 📦 Dependencies & Package Managers
+# ==========================================
+node_modules/
+.pnpm-store/
+pnpm-lock.yaml
+
+# ==========================================
+# 🚀 Turborepo & Build Caching
+# ==========================================
+.turbo/
+dist/
+.next/
+build/
+out/
+
+# ==========================================
+# 🐳 Database (PostgreSQL & Prisma/TypeORM)
+# ==========================================
+# Excludes heavy local database data dumps
+.postgres/
+postgres-data/
+pgdata/
+*.sql
+!*.sql.template
+
+# ==========================================
+# 🧪 UI, Assets, & Generated Styling (shadcn/Tailwind)
+# ==========================================
+# Keeps component files but ignores raw asset/log weights
+.tailwindcss/
+*.log
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.woff
+*.woff2
+
+# ==========================================
+# ⚙️ System, IDEs, & Environment Secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+.DS_Store
+.vscode/
+.idea/
+.git/
