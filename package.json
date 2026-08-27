@@ -15,7 +15,8 @@
     "db:up": "docker compose up -d",
     "db:migrate": "pnpm --filter @groundwork/db migrate",
     "setup": "pnpm install && pnpm --filter @groundwork/widget build && pnpm db:migrate",
-    "stop": "pkill -f 'tsx.*--env-file' || true"
+    "stop": "pkill -f 'tsx.*--env-file' || true",
+    "start": "pnpm --filter @groundwork/api start"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",

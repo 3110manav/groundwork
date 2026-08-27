@@ -1,0 +1,8 @@
+{
+    "builder": "nixpacks",
+    "nixpacks": {
+        "providers": [
+            "nodejs-pnpm"
+        ]
+    }
+}
